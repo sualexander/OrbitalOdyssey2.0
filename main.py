@@ -7,7 +7,7 @@ screen = pygame.display.set_mode(window)
 pygame.display.set_caption("Orbital Odyssey")
 
 FPS = 30
-GRAV_CONST = 10
+GRAV_CONST = 5
 VEL = 5
 
 def update_window(objects):
@@ -37,6 +37,8 @@ def check_collision(rocket, actors):
                 return 2
             else:
                 return 1
+        elif rocket.location[0] > 1400 or rocket.location[0] < -100 or rocket.location[1] > 800 or rocket.location[1] < -100:
+            return 1
     return 0
 
 def start_menu():
@@ -75,6 +77,28 @@ def select_menu():
                     start_menu()
         update_window(objects)
 
+def success():
+    running = True
+    success = Actor("ART/success.png", [0, 100])
+    next_level_button = Actor("ART/nextlevel.png", [400, 600])
+
+def failure():
+    running = True
+    failure = Actor("ART/failure.png", [0, 100])
+    retry = Actor("ART/retry.png", [480, 550])
+    main_menu = Actor("ART/mainmenubutton.png", [460, 640])
+    objects = [failure, retry, main_menu]
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if retry.image.get_rect(topleft=retry.location).collidepoint(pygame.mouse.get_pos()):
+                    return True
+                elif main_menu.image.get_rect(topleft=main_menu.location).collidepoint(pygame.mouse.get_pos()):
+                    return False
+        update_window(objects)
+
 def make_level(actors, background):
     rocket = Player("ART/rocket.png", [0, 10])
     objects = [background] + actors + [rocket]
@@ -83,6 +107,7 @@ def make_level(actors, background):
     designing = True
     has_selected = False
     running = True
+    retry = False
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -119,18 +144,22 @@ def make_level(actors, background):
 
             check = check_collision(rocket, actors)
 
-            if check != 0:
-                launching = False
-                if check == 1:
-                    objects.remove(rocket)
-                elif check == 2:
-                    print("SUCCESS!")
-                    running = False
+            if check == 1:
+                objects.remove(rocket)
+                update_window(objects)
+                running = False
+                retry = failure()
+            elif check == 2:
+                print("SUCCESS!")
+                running = False
 
         update_window(objects)
+    if retry:
+        make_level(actors, background)
 
 def main():
     running = True
+    levels = []
     while running:
         #speed of while loop
         clock = pygame.time.Clock()
@@ -143,8 +172,9 @@ def main():
         #
         # print(levels["level1"]["background"])
         #make_level(levels["level1"]["actors"],levels["level1"]["background"])
-        
-        make_level([make_target([950, 300]), make_astroids([600,100]), make_redplanet([400,500])], Actor("ART/spacebackground.jpg", [0, 0]))
+
+        level1 = [make_target([950, 300]), make_astroids([600,100]), make_redplanet([400,500])], Actor("ART/spacebackground.jpg", [0, 0])
+        make_level(*level1)
 
     pygame.quit()
 
