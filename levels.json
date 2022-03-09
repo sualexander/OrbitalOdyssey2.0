@@ -1,5 +1,8 @@
 {
-  "level1" : "[make_target([400,0]), make_earth([1000, 500])], Actor('ART/spacebackground.jpg', [0, 0])",
-  "level2" : "[make_target([800,0]), make_earth([0, 500])], Actor('ART/spacebackground.jpg', [0, 0]"
+  "level1":
+  {
+    "actors": [400,0],
+    "background": "Actor('ART/spacebackground.jpg', [0, 0])"
+  },
 }
 
