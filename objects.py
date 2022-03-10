@@ -13,38 +13,48 @@ class Actor:
         return center
 
 class Obstacle(Actor):
-    def __init__(self, image, location, is_target):
+    def __init__(self, image, location, is_target, has_gravity, can_move):
         Actor.__init__(self, image, location)
         self.is_target = is_target
+        self.has_gravity = has_gravity
+        self.can_move = can_move
 
 class Player(Actor):
-    def __init__(self, image, location):
+    def __init__(self, image, location, frames):
         Actor.__init__(self, image, location)
+        self.frames = frames
+        self.animation = self.load_images()
         self.velocity = [2,0]
 
+    def load_images(self):
+        animation = []
+        for frame in self.frames:
+            animation.append(pygame.image.load(frame))
+        return animation
+
 class Portal(Obstacle):
-    def __init__(self, image, location, is_target, location2):
-        Obstacle.__init__(self, image, location, is_target)
+    def __init__(self, image, location, is_target, has_gravity, can_move, location2):
+        Obstacle.__init__(self, image, location, is_target, has_gravity, can_move)
         self.image2 = pygame.image.load("ART/portal.png")
         self.location2 = location2
         self.rect2 = pygame.Rect(self.location2[0], self.location2[1], self.radius[0]*2, self.radius[1]*2)
         self.is_portal = True
 
 def make_target(location):
-    return Obstacle("ART/blueplanet.png", location, True)
+    return Obstacle("ART/blueplanet.png", location, True, True, False)
 
 
 def make_astroids(location):
-    return Obstacle("ART/asteroids.png", location, False)
+    return Obstacle("ART/asteroids.png", location, False, False, False)
 
 
 def make_redplanet(location):
-    return Obstacle("ART/redplanet.png", location, False)
+    return Obstacle("ART/redplanet.png", location, False, True, True)
 
 
 def make_blueplanet(location):
-    return Obstacle("ART/blueplanet.png", location, False)
+    return Obstacle("ART/blueplanet.png", location, False, True, True)
 
 
 def make_portal(location, location2: []):
-    return Portal("ART/portal.png", location, False, location2)
+    return Portal("ART/portal.png", location, False, False, False, location2)

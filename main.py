@@ -1,5 +1,7 @@
 import json
-import time
+import copy
+import pygame.mouse
+
 from objects import*
 pygame.init()
 
@@ -11,23 +13,33 @@ FPS = 30
 GRAV_CONST = 5
 VEL = 5
 
+num_levels = 2
+count = 0
 def update_window(objects):
+    global count
     for object in objects:
-        screen.blit(object.image, object.location)
-        if isinstance(object, Portal):
-            screen.blit(object.image2, object.location2)
+        if isinstance(object, Player):
+            if count >= 3:
+                count = 0
+            screen.blit(object.animation[int(count)], object.location)
+            count += 0.1
+        else:
+            screen.blit(object.image, object.location)
+            if isinstance(object, Portal):
+                screen.blit(object.image2, object.location2)
     pygame.display.flip()
 
 def update_gravity(rocket, actors):
     force_x = 0
     force_y = 0
     for actor in actors:
-        y = actor.get_center()[1] - rocket.get_center()[1]
-        x = actor.get_center()[0] - rocket.get_center()[0]
-        distance_squared = (x ** 2) + (y ** 2)
-        gravity = GRAV_CONST / distance_squared
-        force_x += gravity * x
-        force_y += gravity * y
+        if actor.has_gravity:
+            y = actor.get_center()[1] - rocket.get_center()[1]
+            x = actor.get_center()[0] - rocket.get_center()[0]
+            distance_squared = (x ** 2) + (y ** 2)
+            gravity = GRAV_CONST / distance_squared
+            force_x += gravity * x
+            force_y += gravity * y
     rocket.velocity[0] += force_x
     rocket.velocity[1] += force_y
 
@@ -67,10 +79,9 @@ def start_menu():
                 pygame.quit()
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if start_button.image.get_rect(topleft=start_button.location).collidepoint(pygame.mouse.get_pos()):
-                    starting = False
+                    return 0
                 if level_select.image.get_rect(topleft=level_select.location).collidepoint(pygame.mouse.get_pos()):
-                    starting = False
-                    select_menu()
+                    return select_menu()
                 if exit_button.image.get_rect(topleft=exit_button.location).collidepoint(pygame.mouse.get_pos()):
                     pygame.quit()
         update_window(objects)
@@ -81,10 +92,17 @@ def select_menu():
     back_button = Actor("ART/backbutton.png", [610, 650])
     objects = [level_select_screen, back_button]
 
+    buttons = []
+    for i in range(12):
+        buttons.append(i)
+
     n = 0
-    for i in range(3):
-        for j in range(4):
-            button + n
+    for i in range(4):
+        for j in range(3):
+            buttons[n] = Actor("ART/backbutton.png", [100 + 400*j, 200 + 100*i])
+            n += 1
+
+    objects.extend(buttons)
             
     while selecting:
         for event in pygame.event.get():
@@ -94,6 +112,10 @@ def select_menu():
                 if back_button.image.get_rect(topleft=back_button.location).collidepoint(pygame.mouse.get_pos()):
                     selecting = False
                     start_menu()
+                for i in range(len(buttons)):
+                    if buttons[i].image.get_rect(topleft=buttons[i].location).collidepoint(pygame.mouse.get_pos()):
+                        return i
+
         update_window(objects)
 
 def success():
@@ -131,8 +153,15 @@ def failure():
         update_window(objects)
 
 def make_level(actors, background):
-    rocket = Player("ART/rocket.png", [0, 10])
-    objects = [background] + actors + [rocket]
+    rocket = Player("ART/rocket.png", [0, 10], ["ART/rocket.png", "ART/rocket2.png", "ART/rocket3.png"])
+    ui = Actor("ART/ui.png", [0, 600])
+
+    originals = []
+    for actor in actors:
+        new = copy.copy(actor)
+        originals.append(new)
+
+    objects = [background] + originals + [rocket] + [ui]
 
     launching = False
     designing = True
@@ -146,7 +175,6 @@ def make_level(actors, background):
                 pygame.quit()
 
             if event.type == pygame.MOUSEBUTTONDOWN:
-                click_pos = pygame.mouse.get_pos()
                 has_selected = True
             elif event.type == pygame.MOUSEBUTTONUP:
                 has_selected = False
@@ -162,20 +190,19 @@ def make_level(actors, background):
             if keys[pygame.K_SPACE]:
                 designing = False
                 launching = True
-
             if has_selected:
-                for actor in actors:
-                    if actor.image.get_rect(topleft=actor.location).collidepoint(click_pos):
+                for actor in originals:
+                    if actor.image.get_rect(topleft=actor.location).collidepoint(pygame.mouse.get_pos()) and actor.can_move:
                         selected = actor
                         selected.location = (mouse_pos[0] - selected.radius[0], mouse_pos[1] - selected.radius[1])
                         selected.rect = pygame.Rect(selected.location[0], selected.location[1], selected.radius[0]*2, selected.radius[1]*2)
 
         if launching:
-            update_gravity(rocket, actors)
+            update_gravity(rocket, originals)
             rocket.location[0] += rocket.velocity[0]
             rocket.location[1] += rocket.velocity[1]
 
-            check = check_collision(rocket, actors)
+            check = check_collision(rocket, originals)
 
             if check == 1:
                 objects.remove(rocket)
@@ -196,16 +223,12 @@ def make_level(actors, background):
 
 def main():
     running = True
-    num_levels = 2
     levels = []
     for i in range(num_levels):
         levels.append("level" + str(i+1))
     while running:
-        #speed of while loop
         clock = pygame.time.Clock()
         clock.tick(FPS)
-
-        start_menu()
 
         # with open('levels.json') as f:
         #     levels = json.load(f)
@@ -216,7 +239,13 @@ def main():
         level_data = {"level1": [[make_target([950, 300]), make_portal([400,100],[800,500])], Actor("ART/spacebackground.jpg", [0, 0])],
                       "level2": [[make_target([950, 300]), make_redplanet([600,100]), make_redplanet([400,500])], Actor("ART/spacebackground.jpg", [0, 0])]
                       }
-        i = 0
+
+        pygame.mixer.music.load("MUSIC/menu.mp3")
+        pygame.mixer.music.play(-1)
+        i = start_menu()
+
+        pygame.mixer.music.load("MUSIC/level.mp3")
+        pygame.mixer.music.play(-1)
         while i < (len(levels)):
             data = level_data.get(levels[i])
             next = make_level(*data)
@@ -225,7 +254,6 @@ def main():
             elif next == 1:
                 break
             i += 1
-
     pygame.quit()
 
 
