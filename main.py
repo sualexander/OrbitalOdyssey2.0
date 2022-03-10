@@ -1,4 +1,5 @@
 import json
+import time
 from objects import*
 pygame.init()
 
@@ -13,6 +14,8 @@ VEL = 5
 def update_window(objects):
     for object in objects:
         screen.blit(object.image, object.location)
+        if isinstance(object, Portal):
+            screen.blit(object.image2, object.location2)
     pygame.display.flip()
 
 def update_gravity(rocket, actors):
@@ -29,13 +32,23 @@ def update_gravity(rocket, actors):
     rocket.velocity[1] += force_y
 
 def check_collision(rocket, actors):
+    global cooldown
     rocket_rect = pygame.Rect(rocket.location[0], rocket.location[1], rocket.radius[0]*2, rocket.radius[1]*2)
     for actor in actors:
-        actor_rect = pygame.Rect(actor.location[0], actor.location[1], actor.radius[0]*2, actor.radius[1]*2)
-        if rocket_rect.colliderect(actor_rect):
+        if isinstance(actor, Portal):
+            if rocket_rect.colliderect(actor.rect) and not cooldown:
+                rocket.location[0] = actor.rect2[0]
+                rocket.location[1] = abs(rocket.location[1]-actor.rect[1]) + actor.rect2[1]
+                cooldown = True
+            elif rocket_rect.colliderect(actor.rect2) and not cooldown:
+                rocket.location = actor.location.copy()
+                cooldown = True
+            elif not rocket_rect.colliderect(actor.rect) and not rocket_rect.colliderect(actor.rect2):
+                cooldown = False
+        if rocket_rect.colliderect(actor.rect):
             if actor.is_target:
                 return 2
-            else:
+            elif not isinstance(actor, Portal):
                 return 1
         elif rocket.location[0] > 1400 or rocket.location[0] < -100 or rocket.location[1] > 800 or rocket.location[1] < -100:
             return 1
@@ -67,6 +80,12 @@ def select_menu():
     level_select_screen = Actor("ART/levelselectscreen.png", [0, 0])
     back_button = Actor("ART/backbutton.png", [610, 650])
     objects = [level_select_screen, back_button]
+
+    n = 0
+    for i in range(3):
+        for j in range(4):
+            button + n
+            
     while selecting:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -80,7 +99,19 @@ def select_menu():
 def success():
     running = True
     success = Actor("ART/success.png", [0, 100])
-    next_level_button = Actor("ART/nextlevel.png", [400, 600])
+    next_level_button = Actor("ART/nextlevel.png", [480, 550])
+    main_menu = Actor("ART/mainmenubutton.png", [460, 640])
+    objects = [success, next_level_button, main_menu]
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if next_level_button.image.get_rect(topleft=next_level_button.location).collidepoint(pygame.mouse.get_pos()):
+                    return True
+                elif main_menu.image.get_rect(topleft=main_menu.location).collidepoint(pygame.mouse.get_pos()):
+                    return False
+        update_window(objects)
 
 def failure():
     running = True
@@ -108,6 +139,7 @@ def make_level(actors, background):
     has_selected = False
     running = True
     retry = False
+    next_level = False
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -136,6 +168,7 @@ def make_level(actors, background):
                     if actor.image.get_rect(topleft=actor.location).collidepoint(click_pos):
                         selected = actor
                         selected.location = (mouse_pos[0] - selected.radius[0], mouse_pos[1] - selected.radius[1])
+                        selected.rect = pygame.Rect(selected.location[0], selected.location[1], selected.radius[0]*2, selected.radius[1]*2)
 
         if launching:
             update_gravity(rocket, actors)
@@ -150,16 +183,23 @@ def make_level(actors, background):
                 running = False
                 retry = failure()
             elif check == 2:
-                print("SUCCESS!")
+                next_level = success()
                 running = False
 
         update_window(objects)
     if retry:
-        make_level(actors, background)
+        return 0
+    if not retry and not next_level:
+        return 1
+    else:
+        return 2
 
 def main():
     running = True
+    num_levels = 2
     levels = []
+    for i in range(num_levels):
+        levels.append("level" + str(i+1))
     while running:
         #speed of while loop
         clock = pygame.time.Clock()
@@ -173,10 +213,21 @@ def main():
         # print(levels["level1"]["background"])
         #make_level(levels["level1"]["actors"],levels["level1"]["background"])
 
-        level1 = [make_target([950, 300]), make_astroids([600,100]), make_redplanet([400,500])], Actor("ART/spacebackground.jpg", [0, 0])
-        make_level(*level1)
+        level_data = {"level1": [[make_target([950, 300]), make_portal([400,100],[800,500])], Actor("ART/spacebackground.jpg", [0, 0])],
+                      "level2": [[make_target([950, 300]), make_redplanet([600,100]), make_redplanet([400,500])], Actor("ART/spacebackground.jpg", [0, 0])]
+                      }
+        i = 0
+        while i < (len(levels)):
+            data = level_data.get(levels[i])
+            next = make_level(*data)
+            if next == 0:
+                i -= 1
+            elif next == 1:
+                break
+            i += 1
 
     pygame.quit()
+
 
 if __name__ == "__main__":
     main()
