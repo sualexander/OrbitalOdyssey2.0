@@ -1,9 +1,9 @@
 import json
 import copy
 import pygame.mouse
-
 from objects import*
 pygame.init()
+pygame.font.init()
 
 window = (1280, 720)
 screen = pygame.display.set_mode(window)
@@ -13,7 +13,9 @@ FPS = 30
 GRAV_CONST = 5
 VEL = 5
 
-num_levels = 2
+FONT = pygame.font.SysFont("helveticaneue", 30)
+UI_SIZE = [100,100]
+num_levels = 6
 count = 0
 def update_window(objects):
     global count
@@ -93,16 +95,20 @@ def select_menu():
     objects = [level_select_screen, back_button]
 
     buttons = []
-    for i in range(12):
-        buttons.append(i)
+    texts = []
 
     n = 0
     for i in range(4):
         for j in range(3):
-            buttons[n] = Actor("ART/backbutton.png", [100 + 400*j, 200 + 100*i])
+            buttons.append(Actor("ART/levelbutton.png", [130 + 420*j, 180 + 100*i]))
+            buttons[n].image = pygame.transform.scale(buttons[n].image, [180,40])
+            text_surface = FONT.render("LEVEL " + str(n+1), False, (255,255,255))
+            text = Text(text_surface, [130 + 420*j, 180 + 100*i])
+            texts.append(text)
             n += 1
 
     objects.extend(buttons)
+    objects.extend(texts)
             
     while selecting:
         for event in pygame.event.get():
@@ -116,6 +122,18 @@ def select_menu():
                     if buttons[i].image.get_rect(topleft=buttons[i].location).collidepoint(pygame.mouse.get_pos()):
                         return i
 
+        update_window(objects)
+
+def end_screen():
+    end = Actor("ART/amogus.png", [0,0])
+    you_win = Actor("ART/youwin.png", [400,200])
+    end.image = pygame.transform.scale(end.image, window)
+    objects = [end, you_win]
+    ending = True
+    while ending:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
         update_window(objects)
 
 def success():
@@ -157,11 +175,16 @@ def make_level(actors, background):
     ui = Actor("ART/ui.png", [0, 600])
 
     originals = []
+    moveables = []
     for actor in actors:
         new = copy.copy(actor)
-        originals.append(new)
+        if new.can_move:
+            new.image = pygame.transform.scale(new.image, UI_SIZE)
+            moveables.append(new)
+        else:
+            originals.append(new)
 
-    objects = [background] + originals + [rocket] + [ui]
+    objects = [background] + originals + [rocket] + [ui] + moveables
 
     launching = False
     designing = True
@@ -191,18 +214,19 @@ def make_level(actors, background):
                 designing = False
                 launching = True
             if has_selected:
-                for actor in originals:
+                for actor in (moveables):
                     if actor.image.get_rect(topleft=actor.location).collidepoint(pygame.mouse.get_pos()) and actor.can_move:
-                        selected = actor
-                        selected.location = (mouse_pos[0] - selected.radius[0], mouse_pos[1] - selected.radius[1])
-                        selected.rect = pygame.Rect(selected.location[0], selected.location[1], selected.radius[0]*2, selected.radius[1]*2)
+                        actor.has_gravity = True
+                        actor.image = pygame.transform.scale(actor.image, actor.original_size)
+                        actor.location = (mouse_pos[0] - actor.radius[0], mouse_pos[1] - actor.radius[1])
+                        actor.rect = pygame.Rect(actor.location[0], actor.location[1], actor.radius[0]*2, actor.radius[1]*2)
 
         if launching:
-            update_gravity(rocket, originals)
+            update_gravity(rocket, originals + moveables)
             rocket.location[0] += rocket.velocity[0]
             rocket.location[1] += rocket.velocity[1]
 
-            check = check_collision(rocket, originals)
+            check = check_collision(rocket, originals + moveables)
 
             if check == 1:
                 objects.remove(rocket)
@@ -236,8 +260,12 @@ def main():
         # print(levels["level1"]["background"])
         #make_level(levels["level1"]["actors"],levels["level1"]["background"])
 
-        level_data = {"level1": [[make_target([950, 300]), make_portal([400,100],[800,500])], Actor("ART/spacebackground.jpg", [0, 0])],
-                      "level2": [[make_target([950, 300]), make_redplanet([600,100]), make_redplanet([400,500])], Actor("ART/spacebackground.jpg", [0, 0])]
+        level_data = {"level1": [[make_target([950, 250])], Actor("ART/spacebackground.jpg", [0, 0])],
+                      "level2": [[make_target([950, 100]), make_astroids([400, 450]), make_astroids([450,-100])], Actor("ART/spacebackground.jpg", [0, 0])],
+                      "level3": [[make_target([950, 300]), make_astroids([650,160]), make_redplanet([100, 610]), make_redplanet([400, 610])], Actor("ART/spacebackground.jpg", [0, 0])],
+                      "level4": [[make_target([950,50]), make_astroids([300,0]), make_astroids([700, 400]), make_redplanet([100, 610]), make_redplanet([400, 610])], Actor("ART/spacebackground.jpg", [0, 0])],
+                      "level5": [[make_target([950, 300]), make_portal([400,100],[800,500]), make_astroids([500,0]), make_astroids([700,400])], Actor("ART/spacebackground.jpg", [0, 0])],
+                      "level6": [[make_target([200, 450]), make_astroids([100, 200]), make_astroids([110,400]), make_portal([800, 400],[500,50]), make_redplanet([100, 610]), make_redplanet([400, 610])], Actor("ART/spacebackground.jpg", [0, 0])]
                       }
 
         pygame.mixer.music.load("MUSIC/menu.mp3")
@@ -254,6 +282,8 @@ def main():
             elif next == 1:
                 break
             i += 1
+            if next == 2 and i == num_levels:
+                end_screen()
     pygame.quit()
 
 
